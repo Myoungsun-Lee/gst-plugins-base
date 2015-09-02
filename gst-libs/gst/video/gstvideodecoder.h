@@ -185,6 +185,8 @@ struct _GstVideoDecoder
   GstSegment      input_segment;
   GstSegment      output_segment;
 
+  gboolean have_segment; /* whether the segment has value or not */
+
   GstVideoDecoderPrivate *priv;
 
   /*< private >*/

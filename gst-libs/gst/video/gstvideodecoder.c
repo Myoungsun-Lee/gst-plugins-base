@@ -582,6 +582,7 @@ gst_video_decoder_init (GstVideoDecoder * decoder, GstVideoDecoderClass * klass)
 
   g_rec_mutex_init (&decoder->stream_lock);
 
+  decoder->have_segment = TRUE;
   decoder->priv->input_adapter = gst_adapter_new ();
   decoder->priv->output_adapter = gst_adapter_new ();
   decoder->priv->packetized = TRUE;
@@ -931,6 +932,7 @@ gst_video_decoder_push_event (GstVideoDecoder * decoder, GstEvent * event)
 
       GST_VIDEO_DECODER_STREAM_LOCK (decoder);
       decoder->output_segment = segment;
+      decoder->have_segment = TRUE;
       decoder->priv->in_out_segment_sync =
           gst_segment_is_equal (&decoder->input_segment, &segment);
       decoder->priv->last_timestamp_out = GST_CLOCK_TIME_NONE;
@@ -2022,6 +2024,7 @@ gst_video_decoder_reset (GstVideoDecoder * decoder, gboolean full,
     gst_segment_init (&decoder->output_segment, GST_FORMAT_UNDEFINED);
     gst_video_decoder_clear_queues (decoder);
     decoder->priv->in_out_segment_sync = TRUE;
+    decoder->have_segment = FALSE;
 
     if (priv->current_frame) {
       gst_video_codec_frame_unref (priv->current_frame);
@@ -2264,6 +2267,7 @@ gst_video_decoder_flush_parse (GstVideoDecoder * dec, gboolean at_eos)
           gst_event_copy_segment (event, &segment);
           if (segment.format == GST_FORMAT_TIME) {
             dec->output_segment = segment;
+            dec->have_segment = TRUE;
             dec->priv->in_out_segment_sync =
                 gst_segment_is_equal (&dec->input_segment, &segment);
           }
@@ -3080,6 +3084,14 @@ gst_video_decoder_clip_and_push_buf (GstVideoDecoder * decoder, GstBuffer * buf)
   }
 
   segment = &decoder->output_segment;
+
+  if (!decoder->have_segment) {
+    GST_INFO_OBJECT (decoder,
+        "Decoder is flushing now and has useless segment value, so dropping buffer.");
+    gst_buffer_unref (buf);
+    goto done;
+  }
+
   if (gst_segment_clip (segment, GST_FORMAT_TIME, start, stop, &cstart, &cstop)) {
     GST_BUFFER_PTS (buf) = cstart;
 
