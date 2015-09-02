@@ -3080,6 +3080,14 @@ gst_video_decoder_clip_and_push_buf (GstVideoDecoder * decoder, GstBuffer * buf)
   }
 
   segment = &decoder->output_segment;
+
+  if (segment->format == GST_FORMAT_UNDEFINED) {
+    GST_INFO_OBJECT (decoder,
+        "Decoder is flushing now and has useless segment value, so dropping buffer.");
+    gst_buffer_unref (buf);
+    goto done;
+  }
+
   if (gst_segment_clip (segment, GST_FORMAT_TIME, start, stop, &cstart, &cstop)) {
     GST_BUFFER_PTS (buf) = cstart;
 
